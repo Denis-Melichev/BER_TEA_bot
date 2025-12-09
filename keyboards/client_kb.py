@@ -90,12 +90,12 @@ suggestions_choice_kb = InlineKeyboardMarkup(inline_keyboard=[
 Появляется после нажатия кнопки «✅ Предложения» в главном меню.
 Содержит одну кнопку для запуска FSM-сценария предложения.
 """
-skip_kb = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="Пропустить")]],
-    resize_keyboard=True,
-    one_time_keyboard=True
+skip_kb = InlineKeyboardMarkup(
+    inline_keyboard=[[InlineKeyboardButton(
+        text="Пропустить", callback_data="skip_photo"
+        )]]
 )
-"""Kлавиатура для пропуска добавления фото."""
+"""Inline-клавиатура для пропуска добавления фото."""
 
 
 def get_review_product_selection_kb(products: list[dict]):

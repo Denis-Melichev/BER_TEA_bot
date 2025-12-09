@@ -20,6 +20,8 @@ import os
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.types import ErrorEvent
 from aiogram.webhook.aiohttp_server import (
     SimpleRequestHandler,
     setup_application
@@ -39,6 +41,16 @@ load_dotenv()
 
 logger = setup_logger()
 
+REDIS_URL = os.getenv("REDIS_URL")
+if REDIS_URL:
+    storage = RedisStorage.from_url(REDIS_URL)
+    logger.info('Используется RedisStorage для FSM')
+else:
+    storage = MemoryStorage()
+    logger.warning(
+        'REDIS_URL не задан! Используется MemoryStorage (только для polling).'
+    )
+
 TOKEN = os.getenv('TOKEN')
 if not TOKEN:
     raise ValueError('Токен не найден! Установите переменную окружения TOKEN.')
@@ -49,14 +61,13 @@ WEBHOOK_PATH = os.getenv('WEBHOOK_PATH') or '/webhook'
 if not WEBHOOK_PATH.startswith('/'):
     WEBHOOK_PATH = '/' + WEBHOOK_PATH
 WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET')
-WEBHOOK_PORT = int(os.getenv('WEBHOOK_PORT', 8080))
+WEBHOOK_PORT = int(os.getenv('PORT', 8080))
 
 
 SSL_CERT = os.getenv('SSL_CERT')
 SSL_PRIV = os.getenv('SSL_PRIV')
 
 bot = Bot(token=TOKEN)
-storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 dp.include_router(admin_router)
@@ -64,6 +75,14 @@ dp.include_router(client_router)
 dp.include_router(order_router)
 dp.include_router(suggestions_router)
 dp.include_router(common_router)
+
+
+@dp.errors()
+async def error_handler(event: ErrorEvent, exception: Exception):
+    logger.exception('Произошла ошибка:', exc_info=exception)
+    bot = event.bot
+    if bot:
+        await on_error(bot, exception)
 
 
 async def on_startup(bot: Bot) -> None:
@@ -81,7 +100,7 @@ async def on_startup(bot: Bot) -> None:
         logger.info('Запуск в режиме polling.')
 
 
-async def on_error(exception: Exception):
+async def on_error(bot: Bot, exception: Exception):
     """
     Отправляет уведомление об исключении администратору бота.
 
@@ -89,7 +108,13 @@ async def on_error(exception: Exception):
     Обрезает сообщение об ошибке до 1000 символов, чтобы избежать
     превышения лимита длины сообщения в Telegram.
     """
-    await bot.send_message(ADMIN_ID, f"❗ Ошибка: {str(exception)[:1000]}")
+    if not ADMIN_ID:
+        logger.error(f"Ошибка без отправки: {exception}")
+        return
+    try:
+        await bot.send_message(ADMIN_ID, f"❗ Ошибка: {str(exception)[:1000]}")
+    except Exception as e:
+        logger.error(f"Не удалось отправить ошибку админу: {e}")
 
 
 async def on_shutdown(bot: Bot) -> None:
