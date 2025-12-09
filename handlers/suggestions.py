@@ -60,9 +60,7 @@ async def load_suggestions_photo(message: Message, state: FSMContext):
     Если прислал текст — считает, что фото не требуется.
     Переходит к следующему состоянию.
     """
-    await handle_photo_step(
-        message, state, FSMSuggestions.contact, entity_name="предложение"
-    )
+    await handle_photo_step(message, state, FSMSuggestions.contact)
 
 
 @router.message(FSMSuggestions.contact)

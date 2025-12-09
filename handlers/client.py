@@ -80,9 +80,7 @@ async def load_review_photo(message: Message, state: FSMContext):
     считает, что фото не прикрепляется.
     Переходит к состоянию запроса контактных данных (опционально).
     """
-    await handle_photo_step(
-        message, state, FSMReview.contact, entity_name="отзыв"
-    )
+    await handle_photo_step(message, state, FSMReview.contact)
 
 
 @router.message(FSMReview.contact)
