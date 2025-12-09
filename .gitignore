@@ -1,0 +1,68 @@
+# ========================
+# Виртуальное окружение
+# ========================
+venv/
+env/
+.venv/
+ENV/
+
+# ========================
+# Файлы с секретами
+# ========================
+.env
+.env.local
+.env.*.local
+
+# ========================
+# Кэш и байт-код Python
+# ========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+.Python
+*.so
+
+# ========================
+# Логи и данные
+# ========================
+*.log
+data.json
+products.json      
+*.db
+*.sqlite
+
+# ========================
+# IDE / Редакторы
+# ========================
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm
+.idea/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ========================
+# ОС
+# ========================
+.DS_Store          # macOS
+Thumbs.db          # Windows
+desktop.ini        # Windows
+
+# ========================
+# Прочее
+# ========================
+*.swp
+*.swo
+.coverage
+.pytest_cache/
+.coverage*
+htmlcov/

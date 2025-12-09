@@ -1,0 +1,147 @@
+"""
+Модуль клавиатур для административной панели Telegram-бота.
+
+Предназначен для управления товарами и отзывами: загрузка новых товаров,
+просмотр ассортимента, редактирование и удаление существующих записей.
+Все клавиатуры разделены по сценариям взаимодействия администратора с ботом.
+
+Основные возможности:
+- Главное меню администратора.
+- Выбор товара для редактирования или удаления.
+- Подтверждение удаления (товара или отзыва).
+- Выбор конкретного поля товара для изменения.
+- Управление отзывами (удаление).
+
+Использует aiogram для создания Reply- и Inline-клавиатур.
+"""
+
+from aiogram.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
+from typing import List, Dict, Any
+
+b1 = KeyboardButton(text='ℹ️ Загрузить')
+b2 = KeyboardButton(text='🍵 Ассортимент')
+b3 = KeyboardButton(text='🛒 Изменить')
+b4 = KeyboardButton(text='⭐ Отзывы')
+
+admin_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [b1, b2],
+        [b3, b4]
+    ],
+    resize_keyboard=True,
+    input_field_placeholder='Выберите действие...'
+)
+"""Основная клавиатура для администратора.
+
+Отображается как постоянное меню внизу чата.
+Содержит четыре действия:
+- «ℹ️ Загрузить» — добавить новый товар,
+- «🍵 Ассортимент» — просмотреть список товаров,
+- «🛒 Изменить» — редактировать или удалить товар,
+- «⭐ Отзывы» — управлять отзывами пользователей.
+"""
+
+
+def get_edit_product_selection_kb(products: List[Dict[str, Any]]):
+    """Создаёт inline-клавиатуру выбора товара,для редактирования и удаления.
+
+    Args:
+        products: Список словарей, каждый из которых представляет товар.
+                  Ожидается наличие ключа 'name' (опционально).
+
+    Returns:
+        Для каждого товара создаётся строка с двумя кнопками:
+        - «✏️ {название}» → callback_data='edit_product_{индекс}',
+        - «🗑 Удалить» → callback_data='confirm_delete_product_{индекс}'.
+        Индекс соответствует позиции в списке (начиная с 0).
+    """
+    buttons = []
+    for i, prod in enumerate(products):
+        name = prod.get('name', f'Товар {i+1}')
+        buttons.append([
+            InlineKeyboardButton(
+                text=f'✏️ {name}', callback_data=f'edit_product_{i}'),
+            InlineKeyboardButton(
+                text='🗑 Удалить', callback_data=f'confirm_delete_product_{i}')
+        ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_confirm_delete_product_kb(product_index: int):
+    """Создаёт клавиатуру подтверждения удаления товара.
+
+    Args:
+        product_index: Индекс товара в исходном списке (для идентификации).
+
+    Returns:
+        Две кнопки:
+        - «✅ Да» → callback_data='delete_product_{product_index}',
+        - «❌ Нет» → callback_data='cancel_delete_product'.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text='✅ Да',
+                callback_data=f'delete_product_{product_index}'
+            ),
+            InlineKeyboardButton(
+                text='❌ Нет',
+                callback_data='cancel_delete_product'
+            )
+        ]
+    ])
+
+
+def get_edit_field_kb():
+    """Создаёт клавиатуру для выбора поля, которое нужно отредактировать.
+
+    Returns:
+        Вертикальный список кнопок для каждого редактируемого поля:
+        фото, название, вес, описание, цена.
+        Дополнительно — кнопка «✅ Готово» для завершения редактирования.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='Фото', callback_data='edit_field_photo')],
+        [InlineKeyboardButton(
+            text='Название', callback_data='edit_field_name')],
+        [InlineKeyboardButton(text='Вес', callback_data='edit_field_weight')],
+        [InlineKeyboardButton(
+            text='Описание', callback_data='edit_field_description')],
+        [InlineKeyboardButton(text='Цена', callback_data='edit_field_price')],
+        [InlineKeyboardButton(text='✅ Готово', callback_data='edit_done')]
+    ])
+
+
+def get_confirm_delete_kb(review_id: int):
+    """Создаёт клавиатуру подтверждения удаления отзыва.
+
+    Args:
+        review_id: Уникальный идентификатор отзыва (обычно из БД).
+
+    Returns:
+        Две кнопки:
+        - «✅ Да» → callback_data='delete_review_{review_id}',
+        - «❌ Нет» → callback_data='cancel_delete_{review_id}'.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text='✅ Да', callback_data=f'delete_review_{review_id}'),
+            InlineKeyboardButton(
+                text='❌ Нет', callback_data=f'cancel_delete_{review_id}')
+        ]
+    ])
+
+
+def get_review_delete_kb(review_id: int):
+    """Клавиатура с кнопкой 'Удалить' под отзывом."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text='🗑 Удалить', callback_data=f'confirm_delete_{review_id}')]
+    ])

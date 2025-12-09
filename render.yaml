@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: telegram-bot
+    env: python
+    region: frankfurt
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    envVars:
+      - key: TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      - key: WEBHOOK_DOMAIN
+        value: BER_TEA_bot.onrender.com
+      - key: WEBHOOK_PATH
+        value: /webhook
