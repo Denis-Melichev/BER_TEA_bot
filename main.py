@@ -77,14 +77,6 @@ dp.include_router(suggestions_router)
 dp.include_router(common_router)
 
 
-@dp.errors()
-async def error_handler(event: ErrorEvent, exception: Exception):
-    logger.exception('Произошла ошибка:', exc_info=exception)
-    bot = event.bot
-    if bot:
-        await on_error(bot, exception)
-
-
 async def on_startup(bot: Bot) -> None:
     """Выполняется при запуске бота (в обоих режимах)."""
     init_db()
@@ -100,7 +92,7 @@ async def on_startup(bot: Bot) -> None:
         logger.info('Запуск в режиме polling.')
 
 
-async def on_error(bot: Bot, exception: Exception):
+async def on_error(exception: Exception):
     """
     Отправляет уведомление об исключении администратору бота.
 
@@ -117,7 +109,13 @@ async def on_error(bot: Bot, exception: Exception):
         logger.error(f"Не удалось отправить ошибку админу: {e}")
 
 
-async def on_shutdown(bot: Bot) -> None:
+@dp.errors()
+async def error_handler(event: ErrorEvent, exception: Exception):
+    logger.exception("Произошла ошибка:", exc_info=exception)
+    await on_error(exception)
+
+
+async def on_shutdown(bot: Bot):
     """Выполняется при остановке."""
     if WEBHOOK_DOMAIN:
         await bot.delete_webhook(drop_pending_updates=True)
