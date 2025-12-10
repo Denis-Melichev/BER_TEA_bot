@@ -40,7 +40,7 @@ async def send_product_notification(bot: Bot, product: dict):
         try:
             await bot.send_photo(
                 chat_id=user_id,
-                photo=product['photo'],
+                photo=product['photo_file_id'],
                 caption=caption
             )
         except Exception as e:

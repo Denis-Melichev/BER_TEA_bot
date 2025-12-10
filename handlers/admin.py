@@ -28,7 +28,8 @@ from database import (
     delete_review_by_id,
     delete_product,
     add_user,
-    get_statistics
+    get_statistics,
+    clear_statistics
 )
 from keyboards.admin_kb import (
     admin_kb,
@@ -37,6 +38,7 @@ from keyboards.admin_kb import (
     get_confirm_delete_kb,
     get_review_delete_kb,
     get_confirm_delete_product_kb,
+    get_confirm_clear_stats_kb
 )
 from keyboards.client_kb import kb_client
 from notifications import send_product_notification
@@ -218,7 +220,7 @@ async def process_edit_product(callback: CallbackQuery, state: FSMContext):
 
 
 field_to_state = {
-    'photo': FSMAdminEdit.editing_photo,
+    'photo_file_id': FSMAdminEdit.editing_photo,
     'name': FSMAdminEdit.editing_name,
     'weight': FSMAdminEdit.editing_weight,
     'description': FSMAdminEdit.editing_description,
@@ -226,7 +228,7 @@ field_to_state = {
 }
 
 field_prompts = {
-    'photo': 'Отправьте новое фото товара.',
+    'photo_file_id': 'Отправьте новое фото товара.',
     'name': 'Введите новое название.',
     'weight': 'Введите новый вес в граммах.',
     'description': 'Введите новое описание.',
@@ -511,4 +513,30 @@ async def cancel_delete_review(callback: CallbackQuery):
     else:
         await callback.message.answer('Отзыв не найден.')
 
+    await callback.answer()
+
+
+@router.message(F.text == "🗑️ Сбросить статистику")
+async def ask_clear_stats(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer(
+        "⚠️ Это удалит ВСЕ данные о продажах. Продолжить?",
+        reply_markup=get_confirm_clear_stats_kb()
+    )
+
+
+@router.callback_query(F.data == "clear_stats_confirm")
+async def do_clear_stats(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    clear_statistics()
+    await callback.message.edit_text("✅ Статистика успешно обнулена.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "clear_stats_cancel")
+async def cancel_clear_stats(callback: CallbackQuery):
+    await callback.message.edit_text("❌ Сброс отменён.")
     await callback.answer()

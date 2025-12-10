@@ -17,7 +17,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 WB = 'http://www.wildberries.ru/catalog/609169456/detail.aspx?size=828389701'
 
-PRODUCT_LIST = ['photo', 'name', 'weight', 'description', 'price']
+PRODUCT_LIST = ['photo_file_id', 'name', 'weight', 'description', 'price']
 
 CDEK_BASE_URL = 'https://api.cdek.ru/v2'.strip()
 

@@ -259,7 +259,7 @@ def add_user(user_id):
 def get_reviews_for_admin(limit: int = 100):
     """Получает отзывы для админ-панели"""
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("""
             SELECT id, text, contact, photo_file_id, user_id, product_id
@@ -267,7 +267,7 @@ def get_reviews_for_admin(limit: int = 100):
             ORDER BY created_at DESC
             LIMIT %s
         """, (limit,))
-        return [dict(row) for row in cur.fetchall()]
+        return cur.fetchall()
     finally:
         cur.close()
         conn.close()
@@ -342,6 +342,32 @@ def get_statistics():
         conn.close()
 
 
+def save_order(
+        user_id,
+        product_id,
+        product_name,
+        quantity,
+        price_per_unit,
+        total_price):
+    """Сохраняет заказ в базу данных."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO orders (
+                user_id, product_id, product_name, quantity,
+                price_per_unit, total_price, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, 'completed')
+        """, (user_id, product_id,
+              product_name, quantity,
+              str(price_per_unit),
+              str(total_price)))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
 def get_review_by_id(review_id: int):
     """Возвращает один отзыв по ID."""
     conn = get_db_connection()
@@ -387,6 +413,18 @@ def get_all_active_user_ids():
     try:
         cur.execute("SELECT user_id FROM users")
         return [row['user_id'] for row in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
+
+
+def clear_statistics():
+    """Удаляет все заказы — тем самым обнуляя статистику."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM orders")
+        conn.commit()
     finally:
         cur.close()
         conn.close()

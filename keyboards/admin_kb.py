@@ -22,18 +22,20 @@ from aiogram.types import (
     InlineKeyboardButton,
 )
 from typing import List, Dict, Any
+from config import PRODUCT_LIST
 
 b1 = KeyboardButton(text='ℹ️ Загрузить')
 b2 = KeyboardButton(text='🍵 Ассортимент')
 b3 = KeyboardButton(text='🛒 Изменить')
 b4 = KeyboardButton(text='⭐ Отзывы')
 b5 = KeyboardButton(text='📊 Статистика')
+b6 = KeyboardButton(text="🗑️ Сбросить статистику")
 
 admin_kb = ReplyKeyboardMarkup(
     keyboard=[
         [b1, b2],
         [b3, b4],
-        [b5]
+        [b5, b6]
     ],
     resize_keyboard=True,
     input_field_placeholder='Выберите действие...'
@@ -105,23 +107,28 @@ def get_confirm_delete_product_kb(product_id: int):
 
 
 def get_edit_field_kb():
-    """Создаёт клавиатуру для выбора поля, которое нужно отредактировать.
+    """Создаёт клавиатуру для выбора поля, которое нужно отредактировать."""
+    field_labels = {
+        'photo_file_id': 'Фото',
+        'name': 'Название',
+        'weight': 'Вес',
+        'description': 'Описание',
+        'price': 'Цена',
+    }
 
-    Returns:
-        Вертикальный список кнопок для каждого редактируемого поля:
-        фото, название, вес, описание, цена.
-        Дополнительно — кнопка «✅ Готово» для завершения редактирования.
-    """
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='Фото', callback_data='edit_field_photo')],
-        [InlineKeyboardButton(
-            text='Название', callback_data='edit_field_name')],
-        [InlineKeyboardButton(text='Вес', callback_data='edit_field_weight')],
-        [InlineKeyboardButton(
-            text='Описание', callback_data='edit_field_description')],
-        [InlineKeyboardButton(text='Цена', callback_data='edit_field_price')],
-        [InlineKeyboardButton(text='✅ Готово', callback_data='edit_done')]
+    buttons = []
+    for field in PRODUCT_LIST:
+        label = field_labels.get(field, field.capitalize())
+        buttons.append([
+            InlineKeyboardButton(
+                text=label,
+                callback_data=f"edit_field_{field}"
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(text='✅ Готово', callback_data='edit_done')
     ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_confirm_delete_kb(review_id: int):
@@ -150,4 +157,16 @@ def get_review_delete_kb(review_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text='🗑 Удалить', callback_data=f'confirm_delete_{review_id}')]
+    ])
+
+
+def get_confirm_clear_stats_kb():
+    """Клавиатура подтверждения удаления статистики."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="✅ Да, обнулить", callback_data="clear_stats_confirm"),
+            InlineKeyboardButton(
+                text="❌ Отмена", callback_data="clear_stats_cancel")
+        ]
     ])

@@ -13,7 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from config import ADMIN_ID
 from states.client_states import FSMOrder
-from database import load_products
+from database import load_products, save_order
 from keyboards.client_kb import (
     kb_client,
     get_product_selection_kb,
@@ -314,6 +314,18 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
             )
         await state.clear()
         return
+    quantity = data['quantity']
+    price_per_unit = float(product['price'])
+    total_price = price_per_unit * quantity
+
+    save_order(
+        user_id=user.id,
+        product_id=product['id'],
+        product_name=product['name'],
+        quantity=quantity,
+        price_per_unit=price_per_unit,
+        total_price=total_price
+    )
     address_display = pvz.get('address') or pvz.get(
         'address_comment', 'Адрес не указан'
     )

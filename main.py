@@ -21,7 +21,6 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import ErrorEvent
 from aiogram.webhook.aiohttp_server import (
     SimpleRequestHandler,
     setup_application
@@ -36,6 +35,7 @@ from handlers.common import router as common_router
 from handlers.admin import router as admin_router
 from handlers.client_order_handlers import router as order_router
 from handlers.suggestions import router as suggestions_router
+from handlers.error_handler import router as error_router
 from config import ADMIN_ID
 load_dotenv()
 
@@ -75,6 +75,7 @@ dp.include_router(client_router)
 dp.include_router(order_router)
 dp.include_router(suggestions_router)
 dp.include_router(common_router)
+dp.include_router(error_router)
 
 
 async def on_startup(bot: Bot) -> None:
@@ -107,12 +108,6 @@ async def on_error(exception: Exception):
         await bot.send_message(ADMIN_ID, f"❗ Ошибка: {str(exception)[:1000]}")
     except Exception as e:
         logger.error(f"Не удалось отправить ошибку админу: {e}")
-
-
-@dp.errors()
-async def error_handler(event: ErrorEvent, exception: Exception):
-    logger.exception("Произошла ошибка:", exc_info=exception)
-    await on_error(exception)
 
 
 async def on_shutdown(bot: Bot):
