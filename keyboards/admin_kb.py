@@ -27,11 +27,13 @@ b1 = KeyboardButton(text='ℹ️ Загрузить')
 b2 = KeyboardButton(text='🍵 Ассортимент')
 b3 = KeyboardButton(text='🛒 Изменить')
 b4 = KeyboardButton(text='⭐ Отзывы')
+b5 = KeyboardButton('📊 Статистика')
 
 admin_kb = ReplyKeyboardMarkup(
     keyboard=[
         [b1, b2],
-        [b3, b4]
+        [b3, b4],
+        [b5]
     ],
     resize_keyboard=True,
     input_field_placeholder='Выберите действие...'
@@ -48,47 +50,51 @@ admin_kb = ReplyKeyboardMarkup(
 
 
 def get_edit_product_selection_kb(products: List[Dict[str, Any]]):
-    """Создаёт inline-клавиатуру выбора товара,для редактирования и удаления.
+    """
+    Создаёт inline-клавиатуру выбора товара для редактирования и удаления.
 
     Args:
-        products: Список словарей, каждый из которых представляет товар.
-                  Ожидается наличие ключа 'name' (опционально).
+        products: Список товаров. Каждый товар должен содержать 'id' и 'name'.
 
     Returns:
-        Для каждого товара создаётся строка с двумя кнопками:
-        - «✏️ {название}» → callback_data='edit_product_{индекс}',
-        - «🗑 Удалить» → callback_data='confirm_delete_product_{индекс}'.
-        Индекс соответствует позиции в списке (начиная с 0).
+        InlineKeyboardMarkup с кнопками:
+        - «✏️ {название}» → callback_data='edit_product_{id}',
+        - «🗑 Удалить» → callback_data='confirm_delete_product_{id}'.
     """
     buttons = []
-    for i, prod in enumerate(products):
-        name = prod.get('name', f'Товар {i+1}')
+    for prod in products:
+        name = prod.get('name', f'Товар {prod["id"]}')
+        product_id = prod['id']
         buttons.append([
             InlineKeyboardButton(
-                text=f'✏️ {name}', callback_data=f'edit_product_{i}'),
+                text=f'✏️ {name}',
+                callback_data=f'edit_product_{product_id}'
+            ),
             InlineKeyboardButton(
-                text='🗑 Удалить', callback_data=f'confirm_delete_product_{i}')
+                text='🗑 Удалить',
+                callback_data=f'confirm_delete_product_{product_id}'
+            )
         ])
-
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_confirm_delete_product_kb(product_index: int):
-    """Создаёт клавиатуру подтверждения удаления товара.
+def get_confirm_delete_product_kb(product_id: int):
+    """
+    Создаёт клавиатуру подтверждения удаления товара.
 
     Args:
-        product_index: Индекс товара в исходном списке (для идентификации).
+        product_id: ID товара в базе данных.
 
     Returns:
-        Две кнопки:
-        - «✅ Да» → callback_data='delete_product_{product_index}',
+        InlineKeyboardMarkup с кнопками:
+        - «✅ Да» → callback_data='delete_product_{product_id}',
         - «❌ Нет» → callback_data='cancel_delete_product'.
     """
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
                 text='✅ Да',
-                callback_data=f'delete_product_{product_index}'
+                callback_data=f'delete_product_{product_id}'
             ),
             InlineKeyboardButton(
                 text='❌ Нет',

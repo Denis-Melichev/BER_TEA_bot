@@ -10,18 +10,19 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from states.client_states import FSMReview
+from states.client_states import FSMReview, FSMReviewEdit
 from database import (
     load_products,
     get_reviews_for_client,
     add_review,
-    get_reviews_for_product_paginated
+    get_reviews_for_product_paginated,
+    get_review_by_id
 )
 from keyboards.client_kb import (
-    reviews_choice_kb,
     skip_kb,
     get_review_product_selection_kb,
-    get_reviews_pagination_kb
+    get_reviews_pagination_kb,
+    get_review_actions_kb
 )
 from utils.suggestion_review_helpers import (
     handle_photo_step,
@@ -49,9 +50,10 @@ async def handle_reviews_button(message: Message):
 
     Предлагает пользователю оставить отзыв.
     """
+    user_id = message.from_user.id
     await message.answer(
         'Что вы хотите сделать?',
-        reply_markup=reviews_choice_kb
+        reply_markup=get_review_actions_kb(user_id)
     )
 
 
@@ -98,7 +100,7 @@ async def load_review_contact(message: Message, state: FSMContext):
         state,
         contact_required=False,
         save_to_db_func=save_review_to_db,
-        entity_name="отзыв"
+        entity_name='отзыв'
     )
 
 
@@ -205,7 +207,7 @@ async def show_reviews_for_product(callback: CallbackQuery):
 
     if not reviews:
         await callback.message.answer(
-            f'Пока нет отзывов на товар «{product['name']}».'
+            f"Пока нет отзывов на товар «{product['name']}»."
         )
         await callback.answer()
         return
@@ -253,3 +255,76 @@ async def reviews_pagination(callback: CallbackQuery):
         await callback.message.edit_text(reviews_text.strip(), reply_markup=kb)
     except Exception:
         await callback.message.answer(reviews_text.strip(), reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("edit_review_"))
+async def start_edit_review(callback: CallbackQuery, state: FSMContext):
+    """Запускает редактирование существующего отзыва."""
+    try:
+        review_id = int(callback.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await callback.answer('Неверный формат данных.', show_alert=True)
+        return
+    review = get_review_by_id(review_id)
+    if not review:
+        await callback.answer('Отзыв не найден.', show_alert=True)
+        return
+    if review['user_id'] != callback.from_user.id:
+        await callback.answer(
+            'Вы не можете редактировать чужой отзыв.', show_alert=True)
+        return
+    await state.set_state(FSMReviewEdit.editing_text)
+    await state.update_data(review_id=review_id)
+    await callback.message.answer('✏️ Введите новый текст отзыва:')
+    await callback.answer()
+
+
+@router.message(FSMReviewEdit.editing_text)
+async def process_edit_text(message: Message, state: FSMContext):
+    """Сохраняет новый текст и запрашивает контакт."""
+    new_text = message.text.strip()
+    if not new_text:
+        await message.reply('Текст не может быть пустым. Попробуйте снова:')
+        return
+
+    await state.update_data(new_text=new_text)
+    await state.set_state(FSMReviewEdit.editing_contact)
+    await message.answer(
+        '📞 Укажите контакт (или нажмите «Пропустить»):',
+        reply_markup=skip_kb
+    )
+
+
+@router.message(FSMReviewEdit.editing_contact)
+async def process_edit_contact(message: Message, state: FSMContext):
+    """Сохраняет контакт и завершает редактирование."""
+    contact = (
+        message.text.strip() if message.text.strip()
+        not in ['Пропустить', '/skip'] else None)
+    await _apply_review_edit(message, state, contact=contact)
+
+
+@router.callback_query(F.data == 'skip_photo', FSMReviewEdit.editing_contact)
+async def skip_edit_contact(callback: CallbackQuery, state: FSMContext):
+    """Пропуск контакта при редактировании."""
+    await _apply_review_edit(callback.message, state, contact=None)
+    await callback.answer()
+
+
+async def _apply_review_edit(
+        message: Message, state: FSMContext, contact: str = None
+):
+    """Применяет изменения к отзыву."""
+    from database import update_review
+
+    data = await state.get_data()
+    review_id = data['review_id']
+    new_text = data['new_text']
+
+    success = update_review(review_id, new_text, contact)
+    if success:
+        await message.answer("✅ Отзыв успешно обновлён!")
+    else:
+        await message.answer("❌ Не удалось обновить отзыв.")
+
+    await state.clear()

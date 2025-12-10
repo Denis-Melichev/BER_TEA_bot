@@ -28,3 +28,9 @@ class FSMSuggestions(StatesGroup):
     text = State()
     photo = State()
     contact = State()
+
+
+class FSMReviewEdit(StatesGroup):
+    """Состояние для редактирования своего отзыва."""
+    editing_text = State()
+    editing_contact = State()

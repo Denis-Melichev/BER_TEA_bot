@@ -29,6 +29,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
+from database import get_user_reviews
 from config import WB
 import re
 
@@ -66,18 +67,33 @@ kb_inline = InlineKeyboardMarkup(inline_keyboard=[
 Используется при запросе «Ссылка на магазин».
 Содержит одну кнопку, ведущую на страницу магазина Wildberries.
 """
-reviews_choice_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [
-        InlineKeyboardButton(
-            text='✏️ Оставить отзыв', callback_data='review:start'
-        )
-    ]
-])
-"""Inline-клавиатура для инициации процесса оставления отзыва.
 
-Появляется после нажатия кнопки «⭐ Оставить отзыв» в главном меню.
-Содержит одну кнопку для запуска FSM-сценария отзыва.
-"""
+
+def get_review_actions_kb(user_id: int):
+    """
+    Возвращает клавиатуру: либо 'оставить', либо 'редактировать'.
+    Ищет только отзывы текущего пользователя.
+    """
+    user_reviews = get_user_reviews(user_id, limit=1)
+    buttons = []
+    if user_reviews:
+        latest_review = user_reviews[0]
+        buttons.append([
+            InlineKeyboardButton(
+                text="✏️ Редактировать отзыв",
+                callback_data=f"edit_review_{latest_review['id']}"
+            )
+        ])
+    else:
+        buttons.append([
+            InlineKeyboardButton(
+                text="⭐ Оставить отзыв",
+                callback_data="review:start"
+            )
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 suggestions_choice_kb = InlineKeyboardMarkup(inline_keyboard=[
     [
         InlineKeyboardButton(

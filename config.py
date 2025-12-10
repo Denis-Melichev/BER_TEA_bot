@@ -12,6 +12,9 @@ CONTACT_SKIP_VALUES = ['нет', '-', '.', 'пропустить', '']
 BASE_DIR = Path(__file__).parent
 CENZ_FILE = BASE_DIR / 'cenz.json'
 
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 WB = 'http://www.wildberries.ru/catalog/609169456/detail.aspx?size=828389701'
 
 PRODUCT_LIST = ['photo', 'name', 'weight', 'description', 'price']

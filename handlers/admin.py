@@ -22,12 +22,13 @@ from config import is_admin, PRODUCT_LIST
 from states.admin_states import FSMAdmin, FSMAdminEdit
 from utils.validators import is_positive_number
 from database import (
+    save_product,
     load_products,
-    save_products,
     get_reviews_for_admin,
     delete_review_by_id,
-    delete_reviews_by_product_id,
-    add_user_if_not_exists
+    delete_product,
+    add_user,
+    get_statistics
 )
 from keyboards.admin_kb import (
     admin_kb,
@@ -54,7 +55,7 @@ async def cmd_start(message: Message):
     с клавиатурой.
     """
     user_id = message.from_user.id
-    add_user_if_not_exists(user_id)
+    add_user(user_id)
 
     if is_admin(user_id):
         await message.answer(
@@ -66,6 +67,25 @@ async def cmd_start(message: Message):
             'Привет! Выберите действие:',
             reply_markup=kb_client
         )
+
+
+@router.message(
+        F.text == "📊 Статистика",
+        lambda message: is_admin(message.from_user.id)
+)
+async def handle_stats(message: Message):
+    stats = get_statistics()
+    text = "📊 <b>Статистика</b>\n\n"
+    text += f"👥 Активных пользователей: <code>{stats['active_users']}</code>\n"
+    text += f"💰 Выручка: <code>{stats['total_revenue']:,.2f} ₽</code>\n\n"
+    if stats['sold_products']:
+        text += "📦 Проданные товары:\n"
+        for name, qty in stats['sold_products']:
+            text += f"  • {name}: <code>{qty}</code> шт.\n"
+    else:
+        text += "📦 Продаж пока нет."
+
+    await message.answer(text, parse_mode="HTML")
 
 
 @router.message(F.text == 'ℹ️ Загрузить')
@@ -85,7 +105,7 @@ async def cm_download(message: Message, state: FSMContext):
 @router.message(F.photo, FSMAdmin.photo)
 async def load_photo(message: Message, state: FSMContext):
     """Сохраняет file_id фото и переходит к вводу названия товара."""
-    await state.update_data(photo=message.photo[-1].file_id)
+    await state.update_data(photo_file_id=message.photo[-1].file_id)
     await state.set_state(FSMAdmin.name)
     await message.reply('Теперь введите название товара')
 
@@ -140,9 +160,7 @@ async def load_price(message: Message, state: FSMContext, bot: Bot):
     await state.update_data(price=price)
     data = await state.get_data()
 
-    current_products = load_products()
-    current_products.append(data)
-    save_products(current_products)
+    save_product(data)
 
     await bot.send_photo(
         chat_id=message.chat.id,
@@ -183,20 +201,15 @@ async def edit_product_start(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith('edit_product_'))
 async def process_edit_product(callback: CallbackQuery, state: FSMContext):
-    """Обрабатывает выбор товара для редактирования.
-
-    Сохраняет индекс товара в FSM и показывает клавиатуру выбора поля.
-    """
-    idx = int(callback.data.split('_')[-1])
+    product_id = int(callback.data.split('_')[-1])
     products = load_products()
-
-    if idx < 0 or idx >= len(products):
+    product = next((p for p in products if p['id'] == product_id), None)
+    if not product:
         await callback.answer('Товар не найден.', show_alert=True)
         return
-
-    product = products[idx]
-    await state.update_data(edit_index=idx, current_product=product)
-
+    await state.update_data(
+        product_id=product_id, current_product=dict(product)
+    )
     await callback.message.edit_text(
         f"Редактирование: {product['name']}\nВыберите поле:",
         reply_markup=get_edit_field_kb()
@@ -240,7 +253,7 @@ async def edit_field_selected(callback: CallbackQuery, state: FSMContext):
 @router.message(FSMAdminEdit.editing_photo, F.photo)
 async def edit_photo(message: Message, state: FSMContext):
     """Сохраняет новое фото и возвращает меню редактирования."""
-    await state.update_data(new_photo=message.photo[-1].file_id)
+    await state.update_data(new_photo_file_id=message.photo[-1].file_id)
     await _return_to_edit_menu(message, state)
 
 
@@ -289,80 +302,76 @@ async def edit_price(message: Message, state: FSMContext):
 
 
 async def _return_to_edit_menu(message: Message, state: FSMContext):
-    """Отображает обновлённое меню редактирования с текущими значениями.
-
-    Показывает накопленные изменения и предлагает выбрать следующее поле.
-    """
     data = await state.get_data()
+    product_id = data.get('product_id')
 
-    if 'edit_index' not in data:
-        await message.answer('Ошибка: потеряна сессия редактирования.')
+    if not product_id:
+        await message.answer('Сессия устарела.')
         await state.clear()
         return
 
-    idx = data["edit_index"]
     products = load_products()
-
-    if idx < 0 or idx >= len(products):
+    product = next((p for p in products if p['id'] == product_id), None)
+    if not product:
         await message.answer('Товар не найден.')
         await state.clear()
         return
-
-    product = products[idx]
-    display = product.copy()
-    for key in PRODUCT_LIST:
-        new_key = f"new_{key}"
-        if new_key in data:
-            display[key] = data[new_key]
+    display = dict(product)
+    for field in PRODUCT_LIST:
+        new_val = data.get(f'new_{field}')
+        if new_val is not None:
+            display[field] = new_val
 
     await message.answer(
-        (
-            f"Редактирование: {display['name']}\n"
-            "Текущие данные обновлены.\n"
-            "Выберите поле:"
-        ).strip(),
+        f"Редактирование: {display['name']}"
+        '\nТекущие данные обновлены.\nВыберите поле:',
         reply_markup=get_edit_field_kb()
     )
 
 
 @router.callback_query(F.data == 'edit_done')
 async def finish_editing(callback: CallbackQuery, state: FSMContext):
-    """Завершает редактирование и сохраняет изменения в базу.
+    """
+    Завершает редактирование и сохраняет изменения в базу данных (PostgreSQL).
 
-    Применяет только те поля, которые были изменены.
-    Отправляет подтверждение или уведомление об отсутствии изменений.
+    Обновляются только те поля, которые были изменены администратором.
     """
     try:
         data = await state.get_data()
-        idx = data.get('edit_index')
-
-        if idx is None:
-            await callback.answer('Сессия устарела.', show_alert=True)
+        product_id = data.get('product_id')
+        if not product_id:
+            await callback.answer(
+                'Сессия устарела. Попробуйте снова.', show_alert=True
+            )
             await state.clear()
             return
-
         products = load_products()
-        if idx < 0 or idx >= len(products):
-            await callback.answer('Товар не найден.', show_alert=True)
+        current_product = None
+        for p in products:
+            if p['id'] == product_id:
+                current_product = dict(p)
+                break
+        if not current_product:
+            await callback.answer('Товар не найден в базе.', show_alert=True)
             await state.clear()
             return
-
+        updated_data = {'id': product_id}
         updated = False
-        for field in PRODUCT_LIST:
-            new_key = f'new_{field}'
-            if new_key in data:
-                products[idx][field] = data[new_key]
-                updated = True
 
+        for field in PRODUCT_LIST:
+            new_value = data.get(f'new_{field}')
+            if new_value is not None:
+                updated_data[field] = new_value
+                updated = True
+            else:
+                updated_data[field] = current_product[field]
         if updated:
-            save_products(products)
+            save_product(updated_data)
             await callback.message.answer('✅ Товар успешно обновлён!')
         else:
             await callback.message.answer('ℹ️ Изменений не было внесено.')
-
         await state.clear()
         await callback.answer()
-
     except Exception as e:
         logger.error(f'ОШИБКА В РЕДАКТИРОВАНИИ: {e}', exc_info=True)
         await callback.answer('❌ Ошибка при сохранении.', show_alert=True)
@@ -371,39 +380,39 @@ async def finish_editing(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith('confirm_delete_product_'))
 async def confirm_delete_product(callback: CallbackQuery):
-    """Запрашивает подтверждение удаления товара."""
-    idx = int(callback.data.split("_")[-1])
-    products = load_products()
+    try:
+        product_id = int(callback.data.split("_")[-1])
+        products = load_products()
+        product = next((p for p in products if p['id'] == product_id), None)
 
-    if idx < 0 or idx >= len(products):
-        await callback.answer('Товар не найден.', show_alert=True)
-        return
+        if not product:
+            await callback.answer('Товар не найден.', show_alert=True)
+            return
 
-    product_name = products[idx].get('name', f'Товар {idx+1}')
-
-    await callback.message.edit_text(
-        f'❓ Точно удалить товар «{product_name}»?',
-        reply_markup=get_confirm_delete_product_kb(idx)
-    )
-    await callback.answer()
+        await callback.message.edit_text(
+            f'❓ Точно удалить товар «{product["name"]}»?',
+            reply_markup=get_confirm_delete_product_kb(product_id)
+        )
+        await callback.answer()
+    except (ValueError, IndexError):
+        await callback.answer('Неверный ID товара.', show_alert=True)
 
 
 @router.callback_query(F.data.startswith('delete_product_'))
-async def delete_product(callback: CallbackQuery):
-    """Удаляет товар и все связанные с ним отзывы."""
-    idx = int(callback.data.split("_")[-1])
-    products = load_products()
+async def handle_delete_product(callback: CallbackQuery):
+    """Удаляет товар и связанные с ним отзывы из базы данных (PostgreSQL)."""
+    try:
+        product_id = int(callback.data.split("_")[-1])
+        delete_product(product_id)
 
-    if idx < 0 or idx >= len(products):
-        await callback.answer('Товар уже удалён.', show_alert=True)
-        return
-    product_id = products[idx]['id']
-    products.pop(idx)
-    save_products(products)
-    delete_reviews_by_product_id(product_id)
+        await callback.message.edit_text('✅ Товар и его отзывы удалены!')
+        await callback.answer()
 
-    await callback.message.edit_text('✅ Товар и его отзывы удалены!')
-    await callback.answer()
+    except (ValueError, IndexError):
+        await callback.answer('Неверный ID товара.', show_alert=True)
+    except Exception as e:
+        logger.error(f'Ошибка при удалении товара: {e}', exc_info=True)
+        await callback.answer('❌ Не удалось удалить товар.', show_alert=True)
 
 
 @router.callback_query(F.data == 'cancel_delete_product')
