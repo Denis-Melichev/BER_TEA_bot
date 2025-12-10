@@ -27,7 +27,7 @@ b1 = KeyboardButton(text='ℹ️ Загрузить')
 b2 = KeyboardButton(text='🍵 Ассортимент')
 b3 = KeyboardButton(text='🛒 Изменить')
 b4 = KeyboardButton(text='⭐ Отзывы')
-b5 = KeyboardButton('📊 Статистика')
+b5 = KeyboardButton(text='📊 Статистика')
 
 admin_kb = ReplyKeyboardMarkup(
     keyboard=[
