@@ -173,7 +173,9 @@ async def get_reviews(callback: CallbackQuery):
         return
 
     for review in reviews:
-        text, contact, photo_id = review
+        text = review['text']
+        contact = review.get('contact')
+        photo_id = review.get('photo_file_id')
         contact_str = contact or 'Аноним'
         caption = f'💬 {text}\n— {contact_str}'
         if photo_id:
@@ -213,7 +215,7 @@ async def show_reviews_for_product(callback: CallbackQuery):
         return
     reviews_text = f"⭐ Отзывы на «{product['name']}»:\n\n"
     for review in reviews:
-        text, contact, _ = review
+        _, text, contact, _ = review
         contact_str = contact or 'Аноним'
         reviews_text += f"💬 {text}\n— {contact_str}\n\n"
 
@@ -245,7 +247,7 @@ async def reviews_pagination(callback: CallbackQuery):
         return
     reviews_text = ''
     for review in reviews:
-        text, contact, _ = review
+        _, text, contact, _ = review
         contact_str = contact or 'Аноним'
         reviews_text += f'💬 {text}\n— {contact_str}\n\n'
 
