@@ -378,3 +378,15 @@ def update_review(
     finally:
         cur.close()
         conn.close()
+
+
+def get_all_active_user_ids():
+    """Возвращает список всех user_id из таблицы users."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT user_id FROM users")
+        return [row['user_id'] for row in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
