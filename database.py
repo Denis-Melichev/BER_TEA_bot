@@ -170,41 +170,6 @@ def add_review(
         conn.close()
 
 
-def get_reviews_for_client(limit: int = 5):
-    """Получает отзывы для клиента."""
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:
-        cur.execute("""
-            SELECT id, text, contact, photo_file_id, user_id
-            FROM reviews
-            ORDER BY created_at DESC
-            LIMIT %s
-        """, (limit,))
-        return cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
-
-
-def get_user_reviews(user_id: int, limit: int = 10):
-    """Возвращает отзывы конкретного пользователя (для редактирования)."""
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:
-        cur.execute("""
-            SELECT id, text, contact, photo_file_id, user_id, product_id
-            FROM reviews
-            WHERE user_id = %s
-            ORDER BY created_at DESC
-            LIMIT %s
-        """, (user_id, limit))
-        return cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
-
-
 def get_reviews_for_product_paginated(product_id, page=1, per_page=3):
     """Получает отзывы для конкретного товара с пагинацией."""
     offset = (page - 1) * per_page
@@ -271,7 +236,7 @@ def get_reviews_for_admin(limit: int = 100):
         conn.close()
 
 
-def delete_review_by_id(review_id: int) -> bool:
+def delete_review_by_id(review_id: int):
     """
     Удаляет отзыв по ID. Возвращает True, если удалён.
     """
@@ -282,20 +247,6 @@ def delete_review_by_id(review_id: int) -> bool:
         deleted = cur.rowcount > 0
         conn.commit()
         return deleted
-    finally:
-        cur.close()
-        conn.close()
-
-
-def delete_reviews_by_product_id(product_id: int):
-    """
-    Удаляет все отзывы, привязанные к товару.
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("DELETE FROM reviews WHERE product_id = %s", (product_id,))
-        conn.commit()
     finally:
         cur.close()
         conn.close()
@@ -418,6 +369,24 @@ def clear_statistics():
     try:
         cur.execute("DELETE FROM orders")
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_user_reviews_by_product(user_id: int, product_id: int):
+    """Возвращает отзывы пользователя на конкретный товар."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute("""
+            SELECT id, text, contact, photo_file_id, user_id, product_id
+            FROM reviews
+            WHERE user_id = %s AND product_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (user_id, product_id))
+        return cur.fetchall()
     finally:
         cur.close()
         conn.close()

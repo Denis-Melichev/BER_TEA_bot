@@ -100,6 +100,7 @@ async def cm_download(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         await message.reply('Эта команда доступна только администратору.')
         return
+    await state.clear()
     await state.set_state(FSMAdmin.photo)
     await message.reply('Загрузи фото')
 
@@ -189,7 +190,7 @@ async def edit_product_start(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         await message.reply('Доступ только для админа.')
         return
-
+    await state.clear()
     products = load_products()
     if not products:
         await message.reply('Нет товаров для редактирования.')

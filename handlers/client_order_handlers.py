@@ -82,11 +82,11 @@ async def select_quantity(message: Message, state: FSMContext):
     """
     text = message.text.strip()
 
-    if not is_positive_number(text):
-        await message.answer('❌ Укажите корректное количество (число > 0):')
+    if not is_positive_number(text) or not text.replace('.', '').isdigit():
+        await message.answer('❌ Укажите целое количество (например: 1, 2, 3):')
         return
 
-    qty = float(text)
+    qty = int(text)
     await state.update_data(quantity=qty)
     await state.set_state(FSMOrder.enter_city)
     await message.answer('🏙️ Введите город доставки (например: Москва):')
@@ -270,7 +270,7 @@ async def process_contact_text(message: Message, state: FSMContext):
     )
 
 
-@router.callback_query(F.data == 'order_cancel')
+@router.callback_query(F.data == 'order_cancel', FSMOrder)
 async def cancel_order(callback: CallbackQuery, state: FSMContext):
     """
     Отменяет оформление заказа.

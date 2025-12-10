@@ -13,16 +13,15 @@ from aiogram.fsm.context import FSMContext
 from states.client_states import FSMReview, FSMReviewEdit
 from database import (
     load_products,
-    get_reviews_for_client,
     add_review,
     get_reviews_for_product_paginated,
-    get_review_by_id
+    get_review_by_id,
+    update_review
 )
 from keyboards.client_kb import (
     skip_kb,
     get_review_product_selection_kb,
-    get_reviews_pagination_kb,
-    get_review_actions_kb
+    get_reviews_pagination_kb
 )
 from utils.suggestion_review_helpers import (
     handle_photo_step,
@@ -51,10 +50,11 @@ async def handle_reviews_button(message: Message):
     Предлагает пользователю оставить отзыв.
     """
     user_id = message.from_user.id
-    await message.answer(
-        'Что вы хотите сделать?',
-        reply_markup=get_review_actions_kb(user_id)
-    )
+    kb = get_review_product_selection_kb(user_id)
+    if not kb.inline_keyboard:
+        await message.answer("Пока нет товаров для отзывов.")
+        return
+    await message.answer("Выберите товар...", reply_markup=kb)
 
 
 @router.message(FSMReview.text)
@@ -110,7 +110,7 @@ async def skip_review_photo(callback: CallbackQuery, state: FSMContext):
     await handle_skip_photo(callback, state, FSMReview.contact)
 
 
-@router.callback_query(F.data == 'review:start')
+@router.callback_query(F.data.startswith('review:start:'))
 async def start_review(callback: CallbackQuery, state: FSMContext):
     """
     Запускает процесс оставления отзыва.
@@ -119,71 +119,11 @@ async def start_review(callback: CallbackQuery, state: FSMContext):
     к которому будет привязан отзыв.
     Если товаров нет — отправляет соответствующее сообщение.
     """
-    products = load_products()
-    if not products:
-        await callback.message.answer('Нет товаров для отзыва.')
-        return
-
-    kb = get_review_product_selection_kb(products)
-    await callback.message.edit_text(
-        'Выберите товар для отзыва:', reply_markup=kb
-    )
-    await state.set_state(FSMReview.select_product)
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith('review_product_'))
-async def select_review_product(callback: CallbackQuery, state: FSMContext):
-    """
-    Обрабатывает выбор товара для отзыва.
-
-    Проверяет, что FSM находится в состоянии выбора товара.
-    Извлекает product_id из callback-данных.
-    При некорректном формате — показывает ошибку.
-    В противном случае — сохраняет ID и переходит к вводу текста отзыва.
-    """
-    if await state.get_state() != FSMReview.select_product.state:
-        await callback.answer()
-        return
-    try:
-        product_id = int(callback.data.split("_")[-1])
-    except (ValueError, IndexError):
-        await callback.answer('Некорректный выбор товара.', show_alert=True)
-        return
-
+    product_id = int(callback.data.split(":")[-1])
     await state.update_data(product_id=product_id)
     await state.set_state(FSMReview.text)
-    await callback.message.answer('Напишите ваш отзыв:')
+    await callback.message.answer("Напишите ваш отзыв:")
     await callback.answer()
-
-
-@router.callback_query(F.data == 'review:show')
-async def get_reviews(callback: CallbackQuery):
-    """
-    Отображает последние 5 отзывов.
-
-    Загружает отзывы из базы данных и отправляет их пользователю.
-    Поддерживает как отзывы с фото, так и без.
-    Если отзывов нет — отправляет соответствующее уведомление.
-    """
-    await callback.answer()
-    reviews = get_reviews_for_client(limit=5)
-    if not reviews:
-        await callback.message.answer('Пока нет отзывов.')
-        return
-
-    for review in reviews:
-        text = review['text']
-        contact = review.get('contact')
-        photo_id = review.get('photo_file_id')
-        contact_str = contact or 'Аноним'
-        caption = f'💬 {text}\n— {contact_str}'
-        if photo_id:
-            await callback.message.answer_photo(
-                photo=photo_id, caption=caption
-            )
-        else:
-            await callback.message.answer(caption)
 
 
 @router.callback_query(F.data.startswith('show_reviews_'))
@@ -317,16 +257,14 @@ async def _apply_review_edit(
         message: Message, state: FSMContext, contact: str = None
 ):
     """Применяет изменения к отзыву."""
-    from database import update_review
-
     data = await state.get_data()
     review_id = data['review_id']
     new_text = data['new_text']
 
     success = update_review(review_id, new_text, contact)
     if success:
-        await message.answer("✅ Отзыв успешно обновлён!")
+        await message.answer('✅ Отзыв успешно обновлён!')
     else:
-        await message.answer("❌ Не удалось обновить отзыв.")
+        await message.answer('❌ Не удалось обновить отзыв.')
 
     await state.clear()

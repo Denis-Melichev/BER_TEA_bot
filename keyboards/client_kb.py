@@ -29,7 +29,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
-from database import get_user_reviews
+from database import get_user_reviews_by_product, load_products
 from config import WB
 import re
 
@@ -69,28 +69,23 @@ kb_inline = InlineKeyboardMarkup(inline_keyboard=[
 """
 
 
-def get_review_actions_kb(user_id: int):
-    """
-    Возвращает клавиатуру: либо 'оставить', либо 'редактировать'.
-    Ищет только отзывы текущего пользователя.
-    """
-    user_reviews = get_user_reviews(user_id, limit=1)
+def get_review_product_selection_kb(user_id: int):
+    """Возвращает список товаров с кнопками 'Написать' или 'Изменить' отзыв."""
+    products = load_products()
     buttons = []
-    if user_reviews:
-        latest_review = user_reviews[0]
-        buttons.append([
-            InlineKeyboardButton(
-                text="✏️ Редактировать отзыв",
-                callback_data=f"edit_review_{latest_review['id']}"
-            )
-        ])
-    else:
-        buttons.append([
-            InlineKeyboardButton(
-                text="⭐ Оставить отзыв",
-                callback_data="review:start"
-            )
-        ])
+
+    for product in products:
+        existing_review = get_user_reviews_by_product(user_id, product['id'])
+        if existing_review:
+            btn_text = f"✏️ {product['name']}"
+            callback_data = f"edit_review_{existing_review[0]['id']}"
+        else:
+            btn_text = f"⭐ {product['name']}"
+            callback_data = f"review:start:{product['id']}"
+
+        buttons.append([InlineKeyboardButton(
+            text=btn_text, callback_data=callback_data)])
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -112,18 +107,6 @@ skip_kb = InlineKeyboardMarkup(
         )]]
 )
 """Inline-клавиатура для пропуска добавления фото."""
-
-
-def get_review_product_selection_kb(products: list[dict]):
-    """Создаёт inline-клавиатуру для выбора товара при отзыве."""
-    buttons = [
-        [InlineKeyboardButton(
-            text=prod['name'],
-            callback_data=f"review_product_{prod['id']}"
-        )]
-        for prod in products
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_product_review_button(product_id: int):
