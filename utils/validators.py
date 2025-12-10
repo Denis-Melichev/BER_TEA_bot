@@ -11,10 +11,13 @@ from config import PHONE_PATTERN
 
 def is_positive_number(value: str) -> bool:
     """Проверяет, является ли строка положительным числом."""
+    if not value:
+        return False
+    normalized = value.strip().replace(",", ".")
     try:
-        num = float(value)
+        num = float(normalized)
         return num > 0
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 

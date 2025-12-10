@@ -75,7 +75,7 @@ async def show_assortment(message: Message):
     for product in products:
         review_kb = get_product_review_button(product['id'])
         await message.answer_photo(
-            photo=product['photo'],
+            photo=product['photo_file_id'],
             caption=(
                 f"Название: {product['name']}\n"
                 f"Вес: {product['weight']} г\n"

@@ -164,7 +164,7 @@ async def load_price(message: Message, state: FSMContext, bot: Bot):
 
     await bot.send_photo(
         chat_id=message.chat.id,
-        photo=data['photo'],
+        photo=data['photo_file_id'],
         caption=(
             f"✅ Товар добавлен!\n"
             f"Название: {data['name']}\n"
