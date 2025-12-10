@@ -81,10 +81,10 @@ def init_db():
 def load_products():
     """Загружает все товары из таблицы 'products', сортируя по имени."""
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("SELECT * FROM products ORDER BY name")
-        return [dict(row) for row in cur.fetchall()]
+        return cur.fetchall()
     finally:
         cur.close()
         conn.close()
@@ -173,7 +173,7 @@ def add_review(
 def get_reviews_for_client(limit: int = 5):
     """Получает отзывы для клиента."""
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("""
             SELECT id, text, contact, photo_file_id, user_id
@@ -181,7 +181,7 @@ def get_reviews_for_client(limit: int = 5):
             ORDER BY created_at DESC
             LIMIT %s
         """, (limit,))
-        return [dict(row) for row in cur.fetchall()]
+        return cur.fetchall()
     finally:
         cur.close()
         conn.close()
@@ -190,7 +190,7 @@ def get_reviews_for_client(limit: int = 5):
 def get_user_reviews(user_id: int, limit: int = 10):
     """Возвращает отзывы конкретного пользователя (для редактирования)."""
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("""
             SELECT id, text, contact, photo_file_id, user_id, product_id
@@ -199,7 +199,7 @@ def get_user_reviews(user_id: int, limit: int = 10):
             ORDER BY created_at DESC
             LIMIT %s
         """, (user_id, limit))
-        return [dict(row) for row in cur.fetchall()]
+        return cur.fetchall()
     finally:
         cur.close()
         conn.close()
@@ -209,7 +209,7 @@ def get_reviews_for_product_paginated(product_id, page=1, per_page=3):
     """Получает отзывы для конкретного товара с пагинацией."""
     offset = (page - 1) * per_page
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("""
             SELECT id, text, contact, photo_file_id
@@ -219,18 +219,16 @@ def get_reviews_for_product_paginated(product_id, page=1, per_page=3):
             LIMIT %s OFFSET %s
         """, (product_id, per_page, offset))
         reviews = cur.fetchall()
-
         cur.execute(
-            "SELECT COUNT(*) FROM reviews WHERE product_id = %s", (product_id,)
+            "SELECT COUNT(*) AS count FROM reviews WHERE product_id = %s",
+            (product_id,)
         )
         total = cur.fetchone()['count']
-
         return [
-            (r['id'],
-             r['text'],
-             r['contact'],
-             r['photo_file_id']) for r in reviews
+            (r['id'], r['text'], r['contact'], r['photo_file_id'])
+            for r in reviews
         ], total
+
     finally:
         cur.close()
         conn.close()
@@ -304,14 +302,10 @@ def delete_reviews_by_product_id(product_id: int):
 
 
 def get_statistics():
-    """
-    Считает статистику, извлекая цену из текстовых значений.
-    Работает даже если total_price = "1 500 ₽".
-    """
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        cur.execute("SELECT COUNT(*) FROM users")
+        cur.execute("SELECT COUNT(*) AS count FROM users")
         active_users = cur.fetchone()['count']
 
         cur.execute("""
@@ -331,7 +325,6 @@ def get_statistics():
             price = extract_price(row['total_price'])
             if price is not None:
                 total_revenue += price
-
         return {
             'active_users': active_users,
             'sold_products': sold_products,
@@ -371,11 +364,11 @@ def save_order(
 def get_review_by_id(review_id: int):
     """Возвращает один отзыв по ID."""
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("SELECT * FROM reviews WHERE id = %s", (review_id,))
         row = cur.fetchone()
-        return dict(row) if row else None
+        return row
     finally:
         cur.close()
         conn.close()
