@@ -119,10 +119,21 @@ async def start_review(callback: CallbackQuery, state: FSMContext):
     к которому будет привязан отзыв.
     Если товаров нет — отправляет соответствующее сообщение.
     """
-    product_id = int(callback.data.split(":")[-1])
+    try:
+        product_id = int(callback.data.split(':')[-1])
+    except ValueError:
+        await callback.answer('Неверный ID товара.', show_alert=True)
+        return
+
+    products = load_products()
+    product = next((p for p in products if p['id'] == product_id), None)
+    if not product or not product.get('is_active', True):
+        await callback.answer('Товар недоступен для отзывов.', show_alert=True)
+        return
+
     await state.update_data(product_id=product_id)
     await state.set_state(FSMReview.text)
-    await callback.message.answer("Напишите ваш отзыв:")
+    await callback.message.answer('Напишите ваш отзыв:')
     await callback.answer()
 
 
