@@ -13,6 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from config import ADMIN_ID
 from states.client_states import FSMOrder
+from aiogram.filters import StateFilter
 from database import load_products, save_order
 from keyboards.client_kb import (
     kb_client,
@@ -270,13 +271,8 @@ async def process_contact_text(message: Message, state: FSMContext):
     )
 
 
-@router.callback_query(F.data == 'order_cancel', FSMOrder)
+@router.callback_query(StateFilter(FSMOrder), F.data == 'order_cancel')
 async def cancel_order(callback: CallbackQuery, state: FSMContext):
-    """
-    Отменяет оформление заказа.
-
-    Удаляет клавиатуру из сообщения и отправляет подтверждение отмены.
-    """
     await state.clear()
     try:
         await callback.message.edit_text(
