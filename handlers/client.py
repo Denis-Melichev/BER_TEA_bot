@@ -129,74 +129,78 @@ async def start_review(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith('show_reviews_'))
 async def show_reviews_for_product(callback: CallbackQuery):
     """
-    Отображает отзывы по конкретному товару (первая страница).
-
-    Загружает товар по ID и первые отзывы (страница 1).
-    Если товар не найден или отзывов нет — отправляет уведомление.
-    Иначе — формирует текст и клавиатуру пагинации.
+    Отображает отзывы по товару (первая страница).
+    Каждый отзыв отправляется отдельным сообщением (с фото или без).
+    В конце — сообщение с клавиатурой пагинации.
     """
     product_id = int(callback.data.split('_')[-1])
-
     products = load_products()
     product = next((p for p in products if p['id'] == product_id), None)
-
     if not product:
-        await callback.message.answer('Товар не найден.')
-        await callback.answer()
+        await callback.answer('Товар не найден.', show_alert=True)
         return
-
     reviews, total = get_reviews_for_product_paginated(product_id, page=1)
-
     if not reviews:
         await callback.message.answer(
             f"Пока нет отзывов на товар «{product['name']}»."
         )
         await callback.answer()
         return
-    reviews_text = f"⭐ Отзывы на «{product['name']}»:\n\n"
+    await callback.message.answer(f"⭐ Отзывы на «{product['name']}»:")
     for review in reviews:
-        _, text, contact, _ = review
+        review_id, text, contact, photo_file_id = review
         contact_str = contact or 'Аноним'
-        reviews_text += f"💬 {text}\n— {contact_str}\n\n"
-
+        caption = f'💬 {text}\n— {contact_str}'
+        if photo_file_id:
+            await callback.message.answer_photo(
+                photo=photo_file_id,
+                caption=caption
+            )
+        else:
+            await callback.message.answer(caption)
     kb = get_reviews_pagination_kb(product_id, page=1, total_reviews=total)
-    await callback.message.answer(reviews_text.strip(), reply_markup=kb)
+    await callback.message.answer('📖 Страницы отзывов:', reply_markup=kb)
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith('reviews_page_'))
 async def reviews_pagination(callback: CallbackQuery):
     """
-    Обрабатывает пагинацию отзывов по товару.
-
-    Извлекает product_id и номер страницы из callback-данных.
-    Загружает соответствующую страницу отзывов.
-    Обновляет сообщение с новым текстом и клавиатурой.
-    Если редактирование невозможно (например, текст не изменился),
-    отправляет новое сообщение.
+    Обрабатывает переход по страницам отзывов.
+    Удаляет старое сообщение с пагинацией и отправляет новую порцию отзывов.
     """
-    parts = callback.data.split("_")
+    parts = callback.data.split('_')
     product_id = int(parts[2])
     page = int(parts[3])
-
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     reviews, total = get_reviews_for_product_paginated(product_id, page=page)
-
     if not reviews:
-        await callback.message.edit_text('Отзывы не найдены.')
+        await callback.message.answer('Отзывы не найдены.')
         await callback.answer()
         return
-    reviews_text = ''
+    products = load_products()
+    product = next((p for p in products if p['id'] == product_id), None)
+    product_name = product['name'] if product else 'этот товар'
+    await callback.message.answer(
+        f'⭐ Отзывы на «{product_name}» (стр. {page}):'
+    )
     for review in reviews:
-        _, text, contact, _ = review
+        _, text, contact, photo_file_id = review
         contact_str = contact or 'Аноним'
-        reviews_text += f'💬 {text}\n— {contact_str}\n\n'
-
+        caption = f"💬 {text}\n— {contact_str}"
+        if photo_file_id:
+            await callback.message.answer_photo(
+                photo=photo_file_id,
+                caption=caption
+            )
+        else:
+            await callback.message.answer(caption)
     kb = get_reviews_pagination_kb(product_id, page=page, total_reviews=total)
-
-    try:
-        await callback.message.edit_text(reviews_text.strip(), reply_markup=kb)
-    except Exception:
-        await callback.message.answer(reviews_text.strip(), reply_markup=kb)
+    await callback.message.answer('📖 Страницы отзывов:', reply_markup=kb)
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("edit_review_"))

@@ -275,14 +275,16 @@ async def cancel_order(callback: CallbackQuery, state: FSMContext):
     """
     Отменяет оформление заказа.
 
-    Очищает состояние FSM и информирует пользователя.
-
-    Args:
-        callback: Callback-запрос от кнопки отмены.
-        state: Контекст конечного автомата.
+    Удаляет клавиатуру из сообщения и отправляет подтверждение отмены.
     """
     await state.clear()
-    await callback.message.edit_text('Оформление заказа отменено.')
+    try:
+        await callback.message.edit_text(
+            'Оформление заказа отменено.',
+            reply_markup=None
+        )
+    except TelegramBadRequest:
+        await callback.message.answer('Оформление заказа отменено.')
     await callback.answer()
 
 

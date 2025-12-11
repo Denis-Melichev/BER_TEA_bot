@@ -232,26 +232,20 @@ def get_order_confirmation_kb():
             - «✅ Подтвердить» → callback_data 'order_confirm',
             - «❌ Отменить» → callback_data 'order_cancel'.
     """
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text='✅ Подтвердить', callback_data='order_confirm'
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text='❌ Отменить', callback_data='order_cancel'
-                )
-            ]
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text='✅ Подтвердить', callback_data='order_confirm'),
+            InlineKeyboardButton(
+                text='❌ Отменить', callback_data='order_cancel')
         ]
-    )
+    ])
 
 
 def clean_address_label(text: str):
     """Убирает 'Как добраться:', 'Адрес:' и подобные префиксы."""
     if not text:
-        return ""
+        return ''
     patterns = [
         r"как добраться\s*[:\-]?\s*",
         r"пункт выдачи\s*[:\-]?\s*",
