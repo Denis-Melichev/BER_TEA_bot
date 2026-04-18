@@ -255,7 +255,7 @@ async def edit_field_selected(callback: CallbackQuery, state: FSMContext):
 
     Переводит FSM в соответствующее состояние и запрашивает новое значение.
     """
-    field = callback.data.split('_')[-1]
+    field = callback.data.removeprefix('edit_field_')
     if field not in field_to_state:
         await callback.answer('Недопустимое поле.', show_alert=True)
         return
